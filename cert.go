@@ -56,10 +56,8 @@ func (m *mkcert) makeCert(hosts []string) {
 	fatalIfErr(err, "failed to generate certificate key")
 	pub := priv.(crypto.Signer).Public()
 
-	// Certificates last for 2 years and 3 months, which is always less than
-	// 825 days, the limit that macOS/iOS apply to all certificates,
-	// including custom roots. See https://support.apple.com/en-us/HT210176.
-	expiration := time.Now().AddDate(10, 3, 0)
+	// Certificates last for 10 years.
+	expiration := time.Now().AddDate(10, 0, 0)
 
 	tpl := &x509.Certificate{
 		SerialNumber: randomSerialNumber(),
@@ -105,6 +103,11 @@ func (m *mkcert) makeCert(hosts []string) {
 	fatalIfErr(err, "failed to generate certificate")
 
 	certFile, keyFile, p12File := m.fileNames(hosts)
+
+	// Ensure certs directory exists
+	if err := os.MkdirAll("./certs", 0755); err != nil {
+		fatalIfErr(err, "failed to create certs directory")
+	}
 
 	if !m.pkcs12 {
 		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert})
@@ -183,15 +186,15 @@ func (m *mkcert) fileNames(hosts []string) (certFile, keyFile, p12File string) {
 		defaultName += "-client"
 	}
 
-	certFile = "./" + defaultName + ".pem"
+	certFile = "./certs/" + defaultName + ".pem"
 	if m.certFile != "" {
 		certFile = m.certFile
 	}
-	keyFile = "./" + defaultName + "-key.pem"
+	keyFile = "./certs/" + defaultName + "-key.pem"
 	if m.keyFile != "" {
 		keyFile = m.keyFile
 	}
-	p12File = "./" + defaultName + ".p12"
+	p12File = "./certs/" + defaultName + ".p12"
 	if m.p12File != "" {
 		p12File = m.p12File
 	}
@@ -225,7 +228,7 @@ func (m *mkcert) makeCertFromCSR() {
 	fatalIfErr(err, "failed to parse the CSR")
 	fatalIfErr(csr.CheckSignature(), "invalid CSR signature")
 
-	expiration := time.Now().AddDate(10, 3, 0)
+	expiration := time.Now().AddDate(10, 0, 0)
 	tpl := &x509.Certificate{
 		SerialNumber:    randomSerialNumber(),
 		Subject:         csr.Subject,
@@ -266,6 +269,11 @@ func (m *mkcert) makeCertFromCSR() {
 		hosts = append(hosts, uri.String())
 	}
 	certFile, _, _ := m.fileNames(hosts)
+
+	// Ensure certs directory exists
+	if err := os.MkdirAll("./certs", 0755); err != nil {
+		fatalIfErr(err, "failed to create certs directory")
+	}
 
 	err = ioutil.WriteFile(certFile, pem.EncodeToMemory(
 		&pem.Block{Type: "CERTIFICATE", Bytes: cert}), 0644)
